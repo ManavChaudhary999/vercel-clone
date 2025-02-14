@@ -31,13 +31,13 @@ async function main() {
         console.log('Build Complete');
 
         const distDirPath = path.join(outDirPath, "dist");
-        const files = fs.readdirSync(distDirPath);
+        const files = fs.readdirSync(distDirPath, { recursive: true });
 
         console.log(`Uploading ${files.length} files to S3`);
 
         for(const file of files) {
             const filePath = path.join(distDirPath, file);
-            const stats = fs.statSync(filePath);
+            const stats = fs.lstatSync(filePath);
 
             if(stats.isDirectory()) continue;
 
