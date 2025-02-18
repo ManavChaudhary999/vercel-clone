@@ -1,23 +1,34 @@
 ## Vercel Clone
 
 This is a simple project that is a clone of Vercel.
-It can deploy a project to AWS ECS and S3.
+It can deploy a project just like Vercel and return the deployed url.
 
-## Build Server
+### Build Server
 
 The build server is a Docker container that clones a git repository and runs a script to build a project then save build output to S3.
 
-### Tools or Resources
+#### Tools or Resources
 
-1. [ECR](https://eu-north-1.console.aws.amazon.com/ecr) - Docker image registry
+1. [Docker Hub](https://hub.docker.com/) - Docker image registry
 2. [ECS](https://aws.amazon.com/ecs/) - Container Orchestration
-3. [S3](https://aws.amazon.com/s3/) - Object Storage
+3. [@aws-sdk/client-s3](https://www.npmjs.com/package/@aws-sdk/client-s3) - AWS SDK for S3
+4. [mime-types](https://www.npmjs.com/package/mime-types) - MIME types
 
-## Reverse Proxy
+### Reverse Proxy
 
-The reverse proxy is a simple server that proxies requests to the correct subdomain which is a dist folder in S3.
+The reverse proxy is a simple server that proxies requests to the correct subdomain which is just a dist folder in S3.
 
-### Tools or Resources
+#### Tools or Resources
 
 1. [Express](https://expressjs.com/) - Node.js framework
 2. [http-proxy](https://www.npmjs.com/package/http-proxy) - Proxy server
+
+### API
+
+The API is a simple server that provides an endpoint for build which is used to build a project and return the url of the project.
+
+#### Tools or Resources
+
+1. [Express](https://expressjs.com/) - Node.js framework
+2. [random-word-slugs](https://www.npmjs.com/package/random-word-slugs) - Generate random subdomains
+3. [@aws-sdk/client-ecs](https://www.npmjs.com/package/@aws-sdk/client-ecs) - AWS SDK for ECS
