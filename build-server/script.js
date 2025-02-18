@@ -3,6 +3,10 @@ const fs = require("fs");
 const path = require("path");
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const mime = require('mime-types');
+const Redis = require("ioredis");
+
+
+const publisher = new Redis(process.env.REDIS_SERVICE_URI);
 
 const s3Client = new S3Client({
     region: 'eu-north-1',
@@ -12,23 +16,31 @@ const s3Client = new S3Client({
     },
 });
 
+async function publish(message) {
+    await publisher.publish(`logs:${process.env.PROJECT_ID}`, message);
+}
+
 async function main() {
     console.log("Executing script");
+    await publish("Build started...");
 
     const outDirPath = path.join(__dirname, "output");
 
     const p = exec(`cd ${outDirPath} && npm install && npm run build`);
 
-    p.stdout.on("data", (data) => {
-        console.log(data);
+    p.stdout.on("data", async (data) => {
+        await publish(data.toString());
+        console.log(data.toString());
     });
 
-    p.stderr.on("data", (data) => {
-        console.error(data);
+    p.stderr.on("data", async (data) => {
+        await publish(data.toString());
+        console.error(data.toString());
     });
 
     p.on("close", async (code) => {
         console.log('Build Complete');
+        await publish('Build Complete');
 
         const distDirPath = path.join(outDirPath, "dist");
         const files = fs.readdirSync(distDirPath, { recursive: true });
@@ -41,6 +53,8 @@ async function main() {
 
             if(stats.isDirectory()) continue;
 
+            await publish(`Uploading ${file}`);
+
             const command = new PutObjectCommand({
                 Bucket: 'vercel-clone-999',
                 Key: `__outputs/${process.env.PROJECT_ID}/${file}`,
@@ -49,8 +63,12 @@ async function main() {
             });
 
             await s3Client.send(command);
-            console.log('Done...');
+            await publish(`Uploaded ${file}`);
         }
+
+        console.log('Done...');
+        await publish('Done...');
+        publisher.quit();
     });
 };
 

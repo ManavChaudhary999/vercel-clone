@@ -3,9 +3,15 @@ require('dotenv').config();
 const express = require("express");
 const { generateSlug } = require('random-word-slugs');
 const { ECSClient, RunTaskCommand } = require('@aws-sdk/client-ecs');
+const Redis = require("ioredis");
+const { WebSocketServer } = require('ws');
+
 
 const app = express();
 const PORT = 9000;
+const wss = new WebSocketServer({ port: 9080 });
+const subscriber = new Redis(process.env.REDIS_SERVICE_URI);    
+
 
 app.use(express.json());
 
@@ -18,12 +24,24 @@ const ecsClient = new ECSClient({
     },
 });
 
+const CHANNELS = new Map();
+wss.on('connection', function connection(ws) {
+    ws.on('error', console.error);
+  
+    ws.on('message', function message(data) {
+      const {channel} = JSON.parse(data);
+      CHANNELS.set(channel, ws);
+    });
+  
+    ws.send('Connected to the server');
+});
+
+
 app.post('/build', async(req, res) => {
     const { projectName, repoUrl } = req.body;
-    console.log(projectName, repoUrl);
-
-    const subdomain = generateSlug(1);
-
+    
+    const subdomain = projectName || generateSlug(1);
+    
     const command = new RunTaskCommand({
         cluster: process.env.AWS_CLUSTER,
         taskDefinition: process.env.AWS_TASK_DEFINITION,
@@ -54,7 +72,7 @@ app.post('/build', async(req, res) => {
             ]
         }
     });
-
+    
     await ecsClient.send(command);
 
     return res.json({
@@ -66,6 +84,27 @@ app.post('/build', async(req, res) => {
     });
 });
 
+
 app.listen(PORT, () => {
-    console.log(`Server running on port: ${PORT}`);
+    console.log(`Server running on port: ${PORT}`);  
 });
+
+wss.on('listening', () => {
+    console.log('Socket is running on port 9080');
+});
+
+
+async function initRedisSubscribe() {
+    console.log('Subscribed to logs....')
+    subscriber.psubscribe('logs:*')
+    subscriber.on('pmessage', (pattern, channel, message) => {
+        wss.clients.forEach(function each(client) {
+            if (client === CHANNELS.get(channel) && client.readyState === WebSocket.OPEN) {
+              client.send(message);
+            }
+        });
+    })
+}
+
+
+initRedisSubscribe();
