@@ -4,7 +4,9 @@
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "build": "tsc",
+    "start": "node server.js",
+    "dev": "npm run build && node dist/server.js"
   },
   "keywords": [],
   "author": "",
@@ -13,10 +15,17 @@
   "description": "",
   "dependencies": {
     "@aws-sdk/client-ecs": "^3.749.0",
+    "@prisma/client": "^6.4.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "ioredis": "^5.5.0",
     "random-word-slugs": "^0.1.7",
+    "typescript": "^5.7.3",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.4",
+    "@types/ws": "^8.5.14"
   }
 }
