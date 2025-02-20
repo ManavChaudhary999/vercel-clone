@@ -1,7 +1,9 @@
-## Vercel Clone
+# Vercel Clone
 
 This is a simple project that is a clone of Vercel.
 It can deploy a project just like Vercel and return the deployed url.
+
+## Version 1
 
 ### Build Server
 
@@ -32,3 +34,26 @@ The API is a simple server that provides an endpoint for build which is used to 
 1. [Express](https://expressjs.com/) - Node.js framework
 2. [random-word-slugs](https://www.npmjs.com/package/random-word-slugs) - Generate random subdomains
 3. [@aws-sdk/client-ecs](https://www.npmjs.com/package/@aws-sdk/client-ecs) - AWS SDK for ECS
+
+## Version 2
+
+### API
+
+- Add a new endpoint to create a project
+- Add a new endpoint to deploy a project
+- Add a new endpoint to get the logs of a deployment
+- Consuming logs from Kafka and saving to ClickHouse
+
+#### Tools or Resources
+
+1. [Prisma](https://www.prisma.io/) - ORM
+2. [Kafka](https://kafka.apache.org/) - Messaging Queue
+3. [ClickHouse](https://clickhouse.com/) - Time Series Database
+
+### Build Server
+
+- Replace redis with kafka to produce logs
+
+#### Tools or Resources
+
+1. [Kafka](https://kafka.apache.org/) - Messaging Queue

@@ -1,18 +1,19 @@
 import dotenv from 'dotenv';
 dotenv.config();
-import express, { Request, Response } from 'express';
+import express from 'express';
 import { generateSlug } from 'random-word-slugs';
 import { ECSClient, RunTaskCommand } from '@aws-sdk/client-ecs';
-import Redis from 'ioredis';
 import { WebSocket, WebSocketServer } from 'ws';
 import db from './db';
 import { DeployementStatus } from '@prisma/client';
+import { createClient } from '@clickhouse/client'
+import { Kafka } from 'kafkajs';
+import { v4 as uuidv4 } from 'uuid';
 
 
 const app = express();
 const PORT = 9000;
 const wss = new WebSocketServer({ port: 9080 });
-const subscriber = new Redis(process.env.REDIS_SERVICE_URI || '');
 
 
 app.use(express.json());
@@ -25,6 +26,28 @@ const ecsClient = new ECSClient({
         secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     },
 });
+
+const clickhouseClient = createClient({
+    host: process.env.CLICKHOUSE_HOST,
+    username: process.env.CLICKHOUSE_USERNAME,
+    password: process.env.CLICKHOUSE_PASSWORD,
+    database: "default",
+})
+
+const kafka = new Kafka({
+    clientId: 'api',
+    brokers: [process.env.KAFKA_BROKER],
+    ssl: {
+        ca: [process.env.KAFKA_SSH_KEY],
+    },
+    sasl: {
+        username: process.env.KAFKA_USERNAME,
+        password: process.env.KAFKA_PASSWORD,
+        mechanism: 'plain'
+    }
+});
+
+const consumer = kafka.consumer({ groupId: 'api-server-logs-consumer' });
 
 const CHANNELS: Map<string, WebSocket> = new Map();
 
@@ -111,6 +134,10 @@ app.post('/deploy', async (req, res) => {
                             name: 'GIT_REPO_URL',
                             value: project.gitURL,
                         },
+                        {
+                            name: 'KAFKA_SSH_KEY',
+                            value: process.env.KAFKA_SSH_KEY,
+                        },
                     ]
                 }
             ]
@@ -125,6 +152,25 @@ app.post('/deploy', async (req, res) => {
     });
 });
 
+app.get('/logs/:deployment_id', async (req, res) => {
+    const { deployment_id } = req.params;
+
+    const logs = await clickhouseClient.query({
+        query: `SELECT event_id, deployment_id, log, timestamp from log_events where deployment_id = {deployment_id:String}`,
+        query_params: {
+            deployment_id: deployment_id
+        },
+        format: 'JSONEachRow'
+    });
+
+    const rawLogs = await logs.json();
+
+    res.json({
+        message: 'Logs fetched',
+        logs: rawLogs,
+    });
+});
+
 
 app.listen(PORT, () => {
     console.log(`Server running on port: ${PORT}`);  
@@ -134,18 +180,41 @@ wss.on('listening', () => {
     console.log('Socket is running on port 9080');
 });
 
+async function initKafkaConsumer() {
+    await consumer.connect();
+    console.log('Connected to Kafka');
+    
+    await consumer.subscribe({ topics: ['container-logs'], fromBeginning: true });
+    await consumer.run({
+        eachBatch: async function ({ batch, heartbeat, commitOffsetsIfNecessary, resolveOffset}) {
+            const messages = batch.messages;
+            console.log(`Recv. ${messages.length} messages..`)
 
-async function initRedisSubscribe(): Promise<void> {
-    console.log('Subscribed to logs....')
-    subscriber.psubscribe('logs:*')
-    subscriber.on('pmessage', (pattern: string, channel: string, message: string) => {
-        wss.clients.forEach(function each(client: WebSocket) {
-            if (client === CHANNELS.get(channel) && client.readyState === WebSocket.OPEN) {
-              client.send(message);
+            for (const message of messages) {
+                if (!message.value) continue;
+
+                const stringMessage = message.value.toString();
+                const { project_id, deployment_id, log } = JSON.parse(stringMessage)
+                console.log({ log, deployment_id });
+
+                try {
+                    const { query_id } = await clickhouseClient.insert({
+                        table: 'log_events',
+                        values: [{ event_id: uuidv4(), deployment_id: deployment_id, log }],
+                        format: 'JSONEachRow'
+                    });
+
+                    console.log(query_id);
+                    resolveOffset(message.offset)
+                    // await commitOffsetsIfNecessary();
+                    await heartbeat();
+                } catch (err) {
+                    console.log(err)
+                }
+
             }
-        });
-    })
+        }
+    });
 }
 
-
-initRedisSubscribe();
+initKafkaConsumer();
