@@ -9,14 +9,15 @@ import { DeployementStatus } from '@prisma/client';
 import { createClient } from '@clickhouse/client'
 import { Kafka } from 'kafkajs';
 import { v4 as uuidv4 } from 'uuid';
+import cors from 'cors';
 
 
 const app = express();
 const PORT = 9000;
 const wss = new WebSocketServer({ port: 9080 });
 
-
 app.use(express.json());
+app.use(cors());
 
 // Creating ECS Client
 const ecsClient = new ECSClient({
@@ -105,50 +106,51 @@ app.post('/deploy', async (req, res) => {
         },
     });
     
-    const command = new RunTaskCommand({
-        cluster: process.env.AWS_CLUSTER,
-        taskDefinition: process.env.AWS_TASK_DEFINITION,
-        launchType: 'FARGATE',
-        count: 1,
-        networkConfiguration: {
-            awsvpcConfiguration: {
-                subnets: ['subnet-0dd1f8226f43bf998', 'subnet-0048ce89643416df4', 'subnet-058951a884dea3b14'],
-                securityGroups: ['sg-022b09e2072d6d0bd'],
-                assignPublicIp: 'ENABLED',
-            },
-        },
-        overrides: {
-            containerOverrides: [
-                {
-                    name: 'build_server',
-                    environment: [
-                        {
-                            name: 'PROJECT_ID',
-                            value: project.id,
-                        },
-                        {
-                            name: 'DEPLOYMENT_ID',
-                            value: deployment.id,
-                        },
-                        {
-                            name: 'GIT_REPO_URL',
-                            value: project.gitURL,
-                        },
-                        {
-                            name: 'KAFKA_SSH_KEY',
-                            value: process.env.KAFKA_SSH_KEY,
-                        },
-                    ]
-                }
-            ]
-        }
-    });
+    // const command = new RunTaskCommand({
+    //     cluster: process.env.AWS_CLUSTER,
+    //     taskDefinition: process.env.AWS_TASK_DEFINITION,
+    //     launchType: 'FARGATE',
+    //     count: 1,
+    //     networkConfiguration: {
+    //         awsvpcConfiguration: {
+    //             subnets: ['subnet-0dd1f8226f43bf998', 'subnet-0048ce89643416df4', 'subnet-058951a884dea3b14'],
+    //             securityGroups: ['sg-022b09e2072d6d0bd'],
+    //             assignPublicIp: 'ENABLED',
+    //         },
+    //     },
+    //     overrides: {
+    //         containerOverrides: [
+    //             {
+    //                 name: 'build_server',
+    //                 environment: [
+    //                     {
+    //                         name: 'PROJECT_ID',
+    //                         value: project.id,
+    //                     },
+    //                     {
+    //                         name: 'DEPLOYMENT_ID',
+    //                         value: deployment.id,
+    //                     },
+    //                     {
+    //                         name: 'GIT_REPO_URL',
+    //                         value: project.gitURL,
+    //                     },
+    //                     {
+    //                         name: 'KAFKA_SSH_KEY',
+    //                         value: process.env.KAFKA_SSH_KEY,
+    //                     },
+    //                 ]
+    //             }
+    //         ]
+    //     }
+    // });
     
-    await ecsClient.send(command);
+    // await ecsClient.send(command);
 
     res.json({
         message: 'Deployment started',
         deployment,
+        project
     });
 });
 

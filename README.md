@@ -57,3 +57,11 @@ The API is a simple server that provides an endpoint for build which is used to 
 #### Tools or Resources
 
 1. [Kafka](https://kafka.apache.org/) - Messaging Queue
+
+### frontend
+
+#### TODO
+- [x] Add Form to create a project
+- [x] Integrate with API
+- [ ] Show output logs to user
+- [ ] Add User Authentication
