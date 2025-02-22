@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc",
+    "start": "node server.js",
+    "dev": "npm run build && node dist/server.js"
   },
   "keywords": [],
   "author": "",
@@ -11,7 +13,14 @@
   "type": "commonjs",
   "description": "",
   "dependencies": {
+    "@prisma/client": "^6.4.1",
     "express": "^4.21.2",
-    "http-proxy": "^1.18.1"
+    "http-proxy": "^1.18.1",
+    "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/http-proxy": "^1.17.16",
+    "@types/node": "^22.13.5"
   }
 }
